@@ -1,66 +1,112 @@
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# import pandas as pd
+# import os
+# from PIL import Image
+# import cv2
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.decomposition import PCA
+# import hdbscan
+# from collections import Counter
+# from sklearn.manifold import TSNE
+# from sklearn.metrics import silhouette_score
+# from scipy.stats import norm
+# from sklearn.metrics import silhouette_score, calinski_harabasz_score
+# from scipy.stats import entropy
+# from sklearn.metrics import adjusted_rand_score
+
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
-import os
-from PIL import Image
-import cv2
+from sklearn.datasets import fetch_lfw_people
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import hdbscan
 from collections import Counter
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
-from scipy.stats import norm
-from sklearn.metrics import silhouette_score, calinski_harabasz_score
-from scipy.stats import entropy
+from scipy.stats import norm, entropy
 from sklearn.metrics import adjusted_rand_score
 
 
-def load_lfw_from_directory(lfw_dir, min_faces_per_person=1, max_people=50, max_images_per_person=10):
+def load_lfw_dataset(min_faces_per_person=20, resize=0.4):
     """
-    Load limited subset of LFW dataset
+    Load LFW dataset directly from scikit-learn
+
+    Parameters:
+        min_faces_per_person: Minimum number of images per person to include
+        resize: Fraction of original image size to use
+
+    Returns:
+        X: Array of images
+        y: Array of labels
+        target_names: List of person names
+        dataset_info: Dictionary with dataset information
     """
-    images = []
-    labels = []
-    person_names = []
+    print("Downloading and loading LFW dataset...")
+    lfw_people = fetch_lfw_people(min_faces_per_person=min_faces_per_person,
+                                  resize=resize,
+                                  color=True)
 
-    # Get first max_people directories
-    person_dirs = sorted([d for d in os.listdir(lfw_dir)
-                          if os.path.isdir(os.path.join(lfw_dir, d))])[:max_people]
-
-    name_to_label = {name: idx for idx, name in enumerate(person_dirs)}
-
-    for person_dir in person_dirs:
-        person_path = os.path.join(lfw_dir, person_dir)
-        image_files = sorted(os.listdir(person_path))[:max_images_per_person]
-
-        for image_file in image_files:
-            image_path = os.path.join(person_path, image_file)
-            try:
-                img = cv2.imread(image_path)
-                if img is not None:
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    img = cv2.resize(img, (100, 100))
-                    images.append(img)
-                    labels.append(name_to_label[person_dir])
-                    if person_dir not in person_names:
-                        person_names.append(person_dir)
-            except Exception as e:
-                print(f"Error loading {image_path}: {str(e)}")
-
-    X = np.array(images)
-    y = np.array(labels)
+    X = lfw_people.images
+    y = lfw_people.target
+    target_names = lfw_people.target_names
 
     dataset_info = {
         'n_samples': len(X),
-        'image_shape': X[0].shape if len(X) > 0 else None,
-        'n_classes': len(person_names),
-        'classes': person_names,
+        'image_shape': X[0].shape,
+        'n_classes': len(target_names),
+        'classes': target_names,
         'samples_per_class': np.bincount(y)
     }
 
-    return X, y, person_names, dataset_info
+    return X, y, target_names, dataset_info
+
+# def load_lfw_from_directory(lfw_dir, min_faces_per_person=1, max_people=50, max_images_per_person=10):
+#     """
+#     Load limited subset of LFW dataset
+#     """
+#     images = []
+#     labels = []
+#     person_names = []
+#
+#     # Get first max_people directories
+#     person_dirs = sorted([d for d in os.listdir(lfw_dir)
+#                           if os.path.isdir(os.path.join(lfw_dir, d))])[:max_people]
+#
+#     name_to_label = {name: idx for idx, name in enumerate(person_dirs)}
+#
+#     for person_dir in person_dirs:
+#         person_path = os.path.join(lfw_dir, person_dir)
+#         image_files = sorted(os.listdir(person_path))[:max_images_per_person]
+#
+#         for image_file in image_files:
+#             image_path = os.path.join(person_path, image_file)
+#             try:
+#                 img = cv2.imread(image_path)
+#                 if img is not None:
+#                     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+#                     img = cv2.resize(img, (100, 100))
+#                     images.append(img)
+#                     labels.append(name_to_label[person_dir])
+#                     if person_dir not in person_names:
+#                         person_names.append(person_dir)
+#             except Exception as e:
+#                 print(f"Error loading {image_path}: {str(e)}")
+#
+#     X = np.array(images)
+#     y = np.array(labels)
+#
+#     dataset_info = {
+#         'n_samples': len(X),
+#         'image_shape': X[0].shape if len(X) > 0 else None,
+#         'n_classes': len(person_names),
+#         'classes': person_names,
+#         'samples_per_class': np.bincount(y)
+#     }
+#
+#     return X, y, person_names, dataset_info
 
 # STEP 3
 def preprocess_and_reduce_dimensions(images, n_components=None, variance_threshold=0.35):
@@ -255,13 +301,19 @@ def calculate_cluster_purity(cluster_labels, true_labels):
 
 def visualize_cluster_exemplars(data, labels, original_images, n_exemplars=5):
     """
-    Visualize exemplar images from each cluster
-    """
+      Visualize exemplar images from each cluster
+      """
     unique_clusters = sorted(list(set(labels)))
     if -1 in unique_clusters:
         unique_clusters.remove(-1)  # Remove noise cluster
 
     n_clusters = len(unique_clusters)
+
+    # Add check for no clusters
+    if n_clusters == 0:
+        print("No clusters found - all points were classified as noise")
+        return
+
     fig, axes = plt.subplots(n_clusters, n_exemplars, figsize=(15, 3 * n_clusters))
 
     for i, cluster in enumerate(unique_clusters):
@@ -302,16 +354,25 @@ def add_noise_to_images(images, noise_type='gaussian', intensity=0.1):
 
     return noisy_images
 
-def compare_distance_metrics(data, metrics=['euclidean', 'manhattan', 'cosine']):
+
+def compare_distance_metrics(data, metrics=['euclidean', 'manhattan', 'l2', 'l1']):
     """
     Compare HDBSCAN with different distance metrics
+
+    Parameters:
+        data: Feature matrix
+        metrics: List of metrics to try. Valid options include:
+                'euclidean', 'manhattan', 'l1', 'l2', 'minkowski'
+
+    Returns:
+        dict: Results for each metric
     """
     results = {}
 
     for metric in metrics:
         clusterer = hdbscan.HDBSCAN(
-            min_cluster_size=30,
-            min_samples=5,
+            min_cluster_size=5,
+            min_samples=2,
             metric=metric
         )
 
@@ -319,11 +380,11 @@ def compare_distance_metrics(data, metrics=['euclidean', 'manhattan', 'cosine'])
 
         # Calculate metrics excluding noise points
         valid_points = cluster_labels != -1
-        if valid_points.sum() > 0:
+        if valid_points.sum() > 0 and len(np.unique(cluster_labels[valid_points])) > 1:
             sil_score = silhouette_score(
                 data[valid_points],
                 cluster_labels[valid_points]
-            ) if len(np.unique(cluster_labels[valid_points])) > 1 else 0
+            )
         else:
             sil_score = 0
 
@@ -561,9 +622,11 @@ def analyze_cluster_stability(data, labels, n_iterations=10, sample_ratio=0.8):
 # Main execution
 if __name__ == "__main__":
     # Step 1: Load the dataset
+    # print("Step 1: Loading the dataset...")
+    # lfw_dir = "lfw"
+    # X, y, target_names, dataset_info = load_lfw_from_directory(lfw_dir, min_faces_per_person=1)
     print("Step 1: Loading the dataset...")
-    lfw_dir = "lfw" 
-    X, y, target_names, dataset_info = load_lfw_from_directory(lfw_dir, min_faces_per_person=1)
+    X, y, target_names, dataset_info = load_lfw_dataset(min_faces_per_person=20, resize=0.4)
 
     print("\nInitial Dataset Information:")
     print(f"Number of samples: {dataset_info['n_samples']}")
@@ -602,8 +665,8 @@ if __name__ == "__main__":
     print("\nApplying HDBSCAN clustering...")
 
     # Try different parameter combinations
-    min_cluster_sizes = [30, 50, 70]
-    min_samples_values = [5, 10, 15]
+    min_cluster_sizes = [5, 10, 15, 20]
+    min_samples_values = [2, 3, 4, 5]
 
     best_labels = None
     best_score = -1
@@ -659,23 +722,27 @@ if __name__ == "__main__":
             print(f"\nTesting {noise_type} noise with intensity {intensity}")
             noisy_data = add_noise_to_images(reduced_data, noise_type, intensity)
 
-            # Compare different distance metrics on noisy data
-            metric_results = compare_distance_metrics(noisy_data)
+            try:
+                # Compare different distance metrics on noisy data
+                metric_results = compare_distance_metrics(noisy_data,
+                  metrics=['euclidean','manhattan'])  # Using only these two metrics
 
-            # Print results
-            print("\nResults for different metrics:")
-            for metric, results in metric_results.items():
-                print(f"\n{metric}:")
-                print(f"Number of clusters: {results['n_clusters']}")
-                print(f"Noise ratio: {results['noise_ratio']:.2f}")
-                print(f"Silhouette score: {results['silhouette']:.3f}")
+                # Print results
+                print("\nResults for different metrics:")
+                for metric, results in metric_results.items():
+                    print(f"\n{metric}:")
+                    print(f"Number of clusters: {results['n_clusters']}")
+                    print(f"Noise ratio: {results['noise_ratio']:.2f}")
+                    print(f"Silhouette score: {results['silhouette']:.3f}")
 
-            # Save best results
-            best_metric = max(metric_results.items(),
-                              key=lambda x: x[1]['silhouette'])
-            np.save(f'cluster_labels_{noise_type}_{intensity}.npy',
-                    best_metric[1]['labels'])
+                # Save best results
+                best_metric = max(metric_results.items(),
+                                  key=lambda x: x[1]['silhouette'])
+                np.save(f'cluster_labels_{noise_type}_{intensity}.npy',
+                        best_metric[1]['labels'])
 
+            except Exception as e:
+                print(f"Error processing {noise_type} noise with intensity {intensity}: {str(e)}")
     print("\nAnalysis complete! Results saved to separate .npy files")
 
 
