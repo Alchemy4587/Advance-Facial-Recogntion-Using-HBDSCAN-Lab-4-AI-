@@ -1,21 +1,3 @@
-# import numpy as np
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-# import pandas as pd
-# import os
-# from PIL import Image
-# import cv2
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.decomposition import PCA
-# import hdbscan
-# from collections import Counter
-# from sklearn.manifold import TSNE
-# from sklearn.metrics import silhouette_score
-# from scipy.stats import norm
-# from sklearn.metrics import silhouette_score, calinski_harabasz_score
-# from scipy.stats import entropy
-# from sklearn.metrics import adjusted_rand_score
-
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -62,51 +44,6 @@ def load_lfw_dataset(min_faces_per_person=20, resize=0.4):
     }
 
     return X, y, target_names, dataset_info
-
-# def load_lfw_from_directory(lfw_dir, min_faces_per_person=1, max_people=50, max_images_per_person=10):
-#     """
-#     Load limited subset of LFW dataset
-#     """
-#     images = []
-#     labels = []
-#     person_names = []
-#
-#     # Get first max_people directories
-#     person_dirs = sorted([d for d in os.listdir(lfw_dir)
-#                           if os.path.isdir(os.path.join(lfw_dir, d))])[:max_people]
-#
-#     name_to_label = {name: idx for idx, name in enumerate(person_dirs)}
-#
-#     for person_dir in person_dirs:
-#         person_path = os.path.join(lfw_dir, person_dir)
-#         image_files = sorted(os.listdir(person_path))[:max_images_per_person]
-#
-#         for image_file in image_files:
-#             image_path = os.path.join(person_path, image_file)
-#             try:
-#                 img = cv2.imread(image_path)
-#                 if img is not None:
-#                     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-#                     img = cv2.resize(img, (100, 100))
-#                     images.append(img)
-#                     labels.append(name_to_label[person_dir])
-#                     if person_dir not in person_names:
-#                         person_names.append(person_dir)
-#             except Exception as e:
-#                 print(f"Error loading {image_path}: {str(e)}")
-#
-#     X = np.array(images)
-#     y = np.array(labels)
-#
-#     dataset_info = {
-#         'n_samples': len(X),
-#         'image_shape': X[0].shape if len(X) > 0 else None,
-#         'n_classes': len(person_names),
-#         'classes': person_names,
-#         'samples_per_class': np.bincount(y)
-#     }
-#
-#     return X, y, person_names, dataset_info
 
 # STEP 3
 def preprocess_and_reduce_dimensions(images, n_components=None, variance_threshold=0.35):
